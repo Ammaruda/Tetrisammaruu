@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tetris</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #1a1d29;
+    --border: #2e3140;
+    --text: #e4e6eb;
+    --muted: #8b8fa3;
+    --accent: #6c8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: var(--text);
+  }
+  .game-wrap {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    padding: 20px;
+  }
+  canvas {
+    background: #06070b;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    display: block;
+  }
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 160px;
+  }
+  .panel-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .panel-box h3 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .stat {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  #next-canvas {
+    background: #06070b;
+    border-radius: 4px;
+    display: block;
+    margin: 0 auto;
+  }
+  .controls {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .overlay-msg {
+    font-size: 13px;
+    color: var(--accent);
+    margin-top: 4px;
+    min-height: 18px;
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+  }
+  button:hover { opacity: 0.9; }
+  h1 {
+    font-size: 16px;
+    margin: 0 0 12px 0;
+    color: var(--text);
+    letter-spacing: 2px;
+  }
+  #defeat-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 5, 8, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 999;
+    text-align: center;
+  }
+  #defeat-overlay.show {
+    display: flex;
+    animation: fadeIn 0.35s ease-out;
+  }
+  #defeat-overlay .defeat-title {
+    font-size: 72px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    color: #ff5c5c;
+    text-shadow: 0 0 30px rgba(255, 92, 92, 0.6);
+    animation: pulseIn 0.5s ease-out;
+  }
+  #defeat-overlay .defeat-sub {
+    margin-top: 16px;
+    font-size: 16px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  #defeat-overlay .defeat-stats {
+    margin-top: 20px;
+    font-size: 15px;
+    color: var(--text);
+    display: flex;
+    gap: 28px;
+  }
+  #defeat-overlay .defeat-stats div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #defeat-overlay .defeat-stats div span:first-child {
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  #defeat-overlay .defeat-stats div span:last-child {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  #defeat-overlay button {
+    margin-top: 28px;
+    width: auto;
+    padding: 10px 28px;
+    font-size: 14px;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pulseIn {
+    0% { transform: scale(0.7); opacity: 0; }
+    60% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+<div id="defeat-overlay">
+  <div class="defeat-title">DEFEAT</div>
+  <div class="defeat-sub">I love you, cinta hati saya babyyy 💕</div>
+  <div class="defeat-stats">
+    <div><span>Score</span><span id="defeat-score">0</span></div>
+    <div><span>Lines</span><span id="defeat-lines">0</span></div>
+    <div><span>Level</span><span id="defeat-level">1</span></div>
+  </div>
+  <button id="defeat-restart-btn">Play Again</button>
+</div>
+<div class="game-wrap">
+  <div>
+    <h1>TETRIS</h1>
+    <canvas id="game-canvas" width="240" height="480"></canvas>
+  </div>
+  <div class="side-panel">
+    <div class="panel-box">
+      <h3>Score</h3>
+      <div class="stat" id="score">0</div>
+    </div>
+    <div class="panel-box">
+      <h3>Lines</h3>
+      <div class="stat" id="lines">0</div>
+    </div>
+    <div class="panel-box">
+      <h3>Level</h3>
+      <div class="stat" id="level">1</div>
+    </div>
+    <div class="panel-box">
+      <h3>Next</h3>
+      <canvas id="next-canvas" width="100" height="100"></canvas>
+    </div>
+    <div class="panel-box">
+      <button id="pause-btn">Pause</button>
+      <div class="overlay-msg" id="msg"></div>
+    </div>
+    <div class="panel-box controls">
+      <b>Controls</b><br>
+      ← → move<br>
+      ↓ soft drop<br>
+      ↑ rotate<br>
+      space hard drop<br>
+      P pause
+    </div>
+  </div>
+</div>
+
+<script>
+const COLS = 10, ROWS = 20, BLOCK = 24;
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('next-canvas');
+const nextCtx = nextCanvas.getContext('2d');
+
+const COLORS = {
+  I: '#4dd0e1', O: '#ffe066', T: '#c77dff',
+  S: '#69db7c', Z: '#ff6b6b', J: '#4dabf7', L: '#ffa94d'
+};
+
+const SHAPES = {
+  I: [[0,1],[1,1],[2,1],[3,1]],
+  O: [[1,0],[2,0],[1,1],[2,1]],
+  T: [[1,0],[0,1],[1,1],[2,1]],
+  S: [[1,0],[2,0],[0,1],[1,1]],
+  Z: [[0,0],[1,0],[1,1],[2,1]],
+  J: [[0,0],[0,1],[1,1],[2,1]],
+  L: [[2,0],[0,1],[1,1],[2,1]]
+};
+
+function rotateCells(cells) {
+  // rotate around approximate center (1.5,1.5) then normalize
+  const rotated = cells.map(([x,y]) => [3 - y, x]);
+  return rotated;
+}
+
+function newPiece() {
+  const keys = Object.keys(SHAPES);
+  const type = keys[Math.floor(Math.random() * keys.length)];
+  return { type, cells: SHAPES[type].map(c => [...c]), x: 3, y: -1, color: COLORS[type] };
+}
+
+let board = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+let current = newPiece();
+let next = newPiece();
+let score = 0, lines = 0, level = 1;
+let dropInterval = 800;
+let dropTimer = 0;
+let lastTime = 0;
+let paused = false;
+let gameOver = false;
+let animFrame;
+
+function collides(cells, ox, oy) {
+  for (const [cx, cy] of cells) {
+    const x = cx + ox, y = cy + oy;
+    if (x < 0 || x >= COLS || y >= ROWS) return true;
+    if (y >= 0 && board[y][x]) return true;
+  }
+  return false;
+}
+
+function lockPiece() {
+  for (const [cx, cy] of current.cells) {
+    const x = current.x + cx, y = current.y + cy;
+    if (y >= 0) board[y][x] = current.color;
+  }
+  clearLines();
+  current = next;
+  next = newPiece();
+  if (collides(current.cells, current.x, current.y)) {
+    gameOver = true;
+    playDefeatSound();
+    showDefeatOverlay();
+  }
+}
+
+function clearLines() {
+  let cleared = 0;
+  for (let y = ROWS - 1; y >= 0; y--) {
+    if (board[y].every(cell => cell)) {
+      board.splice(y, 1);
+      board.unshift(Array(COLS).fill(null));
+      cleared++;
+      y++;
+    }
+  }
+  if (cleared > 0) {
+    const points = [0, 100, 300, 500, 800][cleared] * level;
+    score += points;
+    lines += cleared;
+    level = Math.floor(lines / 10) + 1;
+    dropInterval = Math.max(120, 800 - (level - 1) * 70);
+    updateStats();
+  }
+}
+
+function updateStats() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('lines').textContent = lines;
+  document.getElementById('level').textContent = level;
+}
+
+function move(dx, dy) {
+  if (!collides(current.cells, current.x + dx, current.y + dy)) {
+    current.x += dx;
+    current.y += dy;
+    return true;
+  }
+  return false;
+}
+
+function rotate() {
+  if (current.type === 'O') return;
+  const rotated = rotateCells(current.cells);
+  // normalize to keep within reasonable bounds
+  const minX = Math.min(...rotated.map(c => c[0]));
+  const minY = Math.min(...rotated.map(c => c[1]));
+  const normalized = rotated.map(([x,y]) => [x - minX, y - minY]);
+  const kicks = [0, -1, 1, -2, 2];
+  for (const k of kicks) {
+    if (!collides(normalized, current.x + k, current.y)) {
+      current.cells = normalized;
+      current.x += k;
+      return;
+    }
+  }
+}
+
+function hardDrop() {
+  while (move(0, 1)) {}
+  lockPiece();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // draw board
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (board[y][x]) {
+        drawCell(ctx, x, y, board[y][x]);
+      }
+    }
+  }
+  // draw current piece
+  if (!gameOver) {
+    for (const [cx, cy] of current.cells) {
+      const x = current.x + cx, y = current.y + cy;
+      if (y >= 0) drawCell(ctx, x, y, current.color);
+    }
+  }
+  // grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  for (let x = 0; x <= COLS; x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * BLOCK, 0);
+    ctx.lineTo(x * BLOCK, ROWS * BLOCK);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= ROWS; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * BLOCK);
+    ctx.lineTo(COLS * BLOCK, y * BLOCK);
+    ctx.stroke();
+  }
+
+  // next piece
+  nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+  const nb = 20;
+  const offsetX = (nextCanvas.width - 4 * nb) / 2;
+  const offsetY = (nextCanvas.height - 4 * nb) / 2;
+  for (const [cx, cy] of next.cells) {
+    nextCtx.fillStyle = next.color;
+    nextCtx.fillRect(offsetX + cx * nb, offsetY + cy * nb, nb - 2, nb - 2);
+  }
+}
+
+function drawCell(context, x, y, color) {
+  context.fillStyle = color;
+  context.fillRect(x * BLOCK, y * BLOCK, BLOCK - 1, BLOCK - 1);
+  context.fillStyle = 'rgba(255,255,255,0.15)';
+  context.fillRect(x * BLOCK, y * BLOCK, BLOCK - 1, 4);
+}
+
+function loop(time) {
+  if (!lastTime) lastTime = time;
+  const delta = time - lastTime;
+  lastTime = time;
+
+  if (!paused && !gameOver) {
+    dropTimer += delta;
+    if (dropTimer > dropInterval) {
+      dropTimer = 0;
+      if (!move(0, 1)) {
+        lockPiece();
+      }
+    }
+  }
+  draw();
+  animFrame = requestAnimationFrame(loop);
+}
+
+function showDefeatOverlay() {
+  document.getElementById('defeat-score').textContent = score;
+  document.getElementById('defeat-lines').textContent = lines;
+  document.getElementById('defeat-level').textContent = level;
+  document.getElementById('defeat-overlay').classList.add('show');
+}
+
+function hideDefeatOverlay() {
+  document.getElementById('defeat-overlay').classList.remove('show');
+}
+
+function restart() {
+  board = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+  current = newPiece();
+  next = newPiece();
+  score = 0; lines = 0; level = 1;
+  dropInterval = 800; dropTimer = 0;
+  gameOver = false; paused = false;
+  document.getElementById('msg').textContent = '';
+  hideDefeatOverlay();
+  updateStats();
+}
+
+// ---------- Audio (synthesized, no external files) ----------
+let audioCtx = null;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// Descending "demoralizing" sad-trombone-ish sound for defeat
+function playDefeatSound() {
+  ensureAudio();
+  const t0 = audioCtx.currentTime;
+  const master = audioCtx.createGain();
+  master.gain.value = 0.18;
+  master.connect(audioCtx.destination);
+
+  const steps = [
+    { f: 392.00, d: 0.35 }, // G4
+    { f: 349.23, d: 0.35 }, // F4
+    { f: 311.13, d: 0.35 }, // Eb4
+    { f: 261.63, d: 0.9 }   // C4, held + wobble
+  ];
+  let t = t0;
+  steps.forEach((s, idx) => {
+    const o = audioCtx.createOscillator();
+    o.type = 'sawtooth';
+    const g = audioCtx.createGain();
+    o.connect(g);
+    g.connect(master);
+    o.frequency.setValueAtTime(s.f, t);
+    if (idx === steps.length - 1) {
+      // wobble the final note downward
+      o.frequency.linearRampToValueAtTime(s.f - 20, t + s.d);
+    }
+    g.gain.setValueCurveAtTime(new Float32Array([0, 1, 0.8, 0]), t, s.d);
+    o.start(t);
+    o.stop(t + s.d + 0.05);
+    t += s.d * 0.85;
+  });
+}
+// ---------------------------------------------------------
+
+document.addEventListener('keydown', (e) => {
+  if (gameOver) {
+    if (e.key === 'r' || e.key === 'R') restart();
+    return;
+  }
+  if (e.key === 'p' || e.key === 'P') {
+    togglePause();
+    return;
+  }
+  if (paused) return;
+  switch (e.key) {
+    case 'ArrowLeft': move(-1, 0); e.preventDefault(); break;
+    case 'ArrowRight': move(1, 0); e.preventDefault(); break;
+    case 'ArrowDown': move(0, 1); e.preventDefault(); break;
+    case 'ArrowUp': rotate(); e.preventDefault(); break;
+    case ' ': hardDrop(); e.preventDefault(); break;
+  }
+});
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pause-btn').textContent = paused ? 'Resume' : 'Pause';
+  document.getElementById('msg').textContent = paused ? 'Paused' : '';
+}
+
+document.getElementById('pause-btn').addEventListener('click', togglePause);
+document.getElementById('defeat-restart-btn').addEventListener('click', restart);
+
+// Browsers require a user gesture before audio can play — unlock on first keypress/click
+let audioStarted = false;
+function startAudioOnce() {
+  if (audioStarted) return;
+  audioStarted = true;
+  ensureAudio();
+}
+document.addEventListener('keydown', startAudioOnce, { once: true });
+document.addEventListener('click', startAudioOnce, { once: true });
+
+updateStats();
+animFrame = requestAnimationFrame(loop);
+</script>
+</body>
+</html>
